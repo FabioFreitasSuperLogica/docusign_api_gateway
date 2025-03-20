@@ -4,10 +4,11 @@ const email = require('./Envelope.js');
 class Main {
 
     static async init(requestData) {
-        let accountInfo = await jwt.authenticate();
-        let args = await jwt.getArgs(accountInfo, requestData);
 
-        return await email.sendEnvelope(args);
+        let accountInfo = await jwt.authenticate();
+        let accountData = await jwt.getArgs(accountInfo, requestData);
+
+        return await email.sendEnvelope(accountData, requestData);
     }
 
 }

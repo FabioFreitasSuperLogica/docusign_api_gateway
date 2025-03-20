@@ -1,16 +1,13 @@
 const docusign = require('docusign-esign');
 const fs = require('fs');
-const path = require('path');
 const jwtConfig = require('../jwtConfig.json');
-
-const demoDocsPath = path.resolve(__dirname, '../../demo_documents');
-const docFile = 'termo_de_consentimento.pdf';
 
 const SCOPES = [
     'signature', 'impersonation'
 ];
 
 class Jwt {
+
     static getConsent() {
         let urlScopes = SCOPES.join('+');
         let redirectUri = 'https://developers.docusign.com/platform/auth/consent';
@@ -75,17 +72,7 @@ class Jwt {
         return {
             accessToken: account.accessToken,
             basePath: account.basePath,
-            accountId: account.apiAccountId,
-            envelopeArgs: {
-                signerEmail: request.email,
-                signerName: request.nome,
-                signerEmail2: request.email2,
-                signerName2: request.nome2,
-                ccEmail: request.ccEmail,
-                ccName: request.ccName,
-                status: 'sent',
-                docFile: path.resolve(demoDocsPath, docFile)
-            }
+            accountId: account.apiAccountId
         };
     }
 }

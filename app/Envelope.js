@@ -1,89 +1,107 @@
-const fs = require('fs-extra');
 const docusign = require('docusign-esign');
 
+const envelopeSubject = 'Solicitacao de Assinatura';
+const envelopeStatus = 'sent';
 class Envelope {
 
-    static async sendEnvelope(args) {
+    static _routingOrder;
+
+    static async sendEnvelope(args, requestData) {
+
         let dsApiClient = new docusign.ApiClient();
         dsApiClient.setBasePath(args.basePath);
         dsApiClient.addDefaultHeader('Authorization', 'Bearer ' + args.accessToken);
 
         let envelopesApi = new docusign.EnvelopesApi(dsApiClient);
         let results = await envelopesApi.createEnvelope(args.accountId, {
-            envelopeDefinition: this.getEnvelope(args.envelopeArgs),
+            envelopeDefinition: this.getEnvelope(requestData),
         });
 
         return { envelopeId: results.envelopeId };
     }
 
-    static getEnvelope(args) {
+    static getEnvelope(requestData) {
 
-        let docPdfBytes = fs.readFileSync(args.docFile);
         let envelope = new docusign.EnvelopeDefinition();
-        let docbase64 = Buffer.from(docPdfBytes).toString('base64');
-        let pdf = new docusign.Document.constructFromObject({
-            documentBase64: docbase64,
-            name: 'Termo de Consentimento',
-            fileExtension: 'pdf',
-            documentId: '1',
+
+        envelope.recipients = docusign.Recipients.constructFromObject({
+            signers: this._getSigners(requestData.signers),
+            carbonCopies: this._getCarbonCopies(requestData.carbon_copies),
         });
 
-        let signer = docusign.Signer.constructFromObject({
-            email: args.signerEmail,
-            name: args.signerName,
-            recipientId: '1',
-            routingOrder: '1',
-        });
-
-        let signer2 = docusign.Signer.constructFromObject({
-            email: args.signerEmail2,
-            name: args.signerName2,
-            recipientId: '2',
-            routingOrder: '2',
-        });
-
-        let signPlace = docusign.SignHere.constructFromObject({
-            anchorString: '/sn1/',
-            anchorYOffset: '0',
-            anchorUnits: 'pixels',
-            anchorXOffset: '0',
-        });
-
-        let signPlace2 = docusign.SignHere.constructFromObject({
-            anchorString: '/sn2/',
-            anchorYOffset: '0',
-            anchorUnits: 'pixels',
-            anchorXOffset: '0',
-        });
-
-        let signerTabs = docusign.Tabs.constructFromObject({
-            signHereTabs: [signPlace]
-        });
-
-        let signerTabs2 = docusign.Tabs.constructFromObject({
-            signHereTabs: [signPlace2]
-        });
-
-        signer.tabs = signerTabs;
-        signer2.tabs = signerTabs2;
-
-        let cc1 = new docusign.CarbonCopy();
-        cc1.email = args.ccEmail;
-        cc1.name = args.ccName;
-        cc1.routingOrder = '3';
-        cc1.recipientId = '3';
-
-        let recipients = docusign.Recipients.constructFromObject({
-            signers: [signer, signer2],
-            carbonCopies: [cc1],
-        });
-
-        envelope.recipients = recipients;
-        envelope.emailSubject = 'Solicitacao de Assinatura';
-        envelope.documents = [pdf];
-        envelope.status = args.status;
+        envelope.emailSubject = envelopeSubject;
+        envelope.documents = this._getDocuments(requestData.files);
+        envelope.status = envelopeStatus;
 
         return envelope;
+    }
+
+    static _getSigners(requestSigners) {
+
+        let signers = [];
+        let sizeOf = requestSigners.length;
+        let order = 0;
+
+        for (let i = 0; i < sizeOf; i++) {
+            order++;
+            let signPlace = docusign.SignHere.constructFromObject({
+                anchorString: '/sn' + order + '/',
+                anchorYOffset: '0',
+                anchorUnits: 'pixels',
+                anchorXOffset: '0',
+            });
+
+            signers.push(docusign.Signer.constructFromObject({
+                name: requestSigners[i].name,
+                email: requestSigners[i].email,
+                recipientId: order,
+                routingOrder: order,
+                tabs: {
+                    signHereTabs: [signPlace]
+                }
+            }));
+        }
+
+        this._routingOrder = parseInt(order);
+
+        return signers;
+    }
+
+    static _getDocuments(requestFiles) {
+
+        let documents = [];
+        let order = 0;
+        let sizeOf = requestFiles.length;
+
+        for (let i = 0; i < sizeOf; i++) {
+            order++;
+            documents.push(new docusign.Document.constructFromObject({
+                documentBase64: requestFiles[i].base64,
+                name: requestFiles[i].name,
+                fileExtension: requestFiles[i].extension,
+                documentId: order,
+            }));
+        }
+
+        return documents;
+    }
+
+    static _getCarbonCopies(requestCcs) {
+
+        let carbonCopies = [];
+        let sizeOf = requestCcs.length;
+
+        for (let i = 0; i < sizeOf; i++) {
+            this._routingOrder++;
+            let cc = new docusign.CarbonCopy();
+            cc.email = requestCcs[i].email;
+            cc.name = requestCcs[i].name;
+            cc.routingOrder = this._routingOrder;
+            cc.recipientId = this._routingOrder;
+            carbonCopies.push(cc);
+        }
+
+        return carbonCopies;
     }
 }
 

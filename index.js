@@ -10,12 +10,12 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.post('/assinaturadigital', (req, res) => {
-    let response = main.init(req.body);
-    res.status(201).json({
-        data: {
-            envelopeId: response.envelopeId
-        }
-    });
+    try {
+        const response = main.init(req.body);
+        res.json(response);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.listen(port, () => {
